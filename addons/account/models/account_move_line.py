@@ -1165,6 +1165,7 @@ class AccountMoveLine(models.Model):
                 line.display_type == 'product' and line.move_id.is_invoice(True)
             ))
 
+    # TODO: delete in master
     @api.onchange('amount_currency', 'currency_id')
     def _inverse_amount_currency(self):
         for line in self:
@@ -1230,7 +1231,7 @@ class AccountMoveLine(models.Model):
             account = line.account_id
             journal = line.move_id.journal_id
 
-            if account.deprecated and not self.env.context.get('skip_account_deprecation_check'):
+            if account.deprecated and not (line.is_imported or self.env.context.get('skip_account_deprecation_check')):
                 raise UserError(_('The account %(name)s (%(code)s) is deprecated.', name=account.name, code=account.code))
 
             account_currency = account.currency_id
@@ -3214,7 +3215,7 @@ class AccountMoveLine(models.Model):
             distribution_on_each_plan = {}
             for account_ids, distribution in self.analytic_distribution.items():
                 line_values = self._prepare_analytic_distribution_line(float(distribution), account_ids, distribution_on_each_plan)
-                if not self.currency_id.is_zero(line_values.get('amount')):
+                if not self.company_currency_id.is_zero(line_values.get('amount')):
                     analytic_line_vals.append(line_values)
 
             self._round_analytic_distribution_line(analytic_line_vals)
@@ -3275,17 +3276,17 @@ class AccountMoveLine(models.Model):
 
         rounding_error = 0
         for line in analytic_lines_vals:
-            rounded_amount = self.company_id.currency_id.round(line['amount'])
+            rounded_amount = self.company_currency_id.round(line['amount'])
             rounding_error += rounded_amount - line['amount']
             line['amount'] = rounded_amount
 
         # distributing the rounding error
         for line in analytic_lines_vals:
-            if self.currency_id.is_zero(rounding_error):
+            if self.company_currency_id.is_zero(rounding_error):
                 break
             amt = max(
-                self.currency_id.rounding,
-                abs(self.currency_id.round(rounding_error / len(analytic_lines_vals)))
+                self.company_currency_id.rounding,
+                abs(self.company_currency_id.round(rounding_error / len(analytic_lines_vals)))
             )
             if rounding_error < 0.0:
                 line['amount'] += amt
@@ -3397,7 +3398,9 @@ class AccountMoveLine(models.Model):
 
         Uses a mapping built with `_reconciled_by_number` to avoid multiple calls to the database.
         """
-        matching_numbers = [n for n in set(self.mapped('matching_number')) if n]
+        # We ignore Import matching numbers as they are not truly reconciled yet
+        matching_numbers = [n for n in set(self.mapped('matching_number')) if n and not n.startswith('I')]
+
         return self | self.browse([_id for number in matching_numbers for _id in mapping[number].ids])
 
     def _all_reconciled_lines(self):
