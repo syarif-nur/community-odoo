@@ -49,6 +49,7 @@ from odoo.tools.mail import (
 )
 
 MAX_DIRECT_PUSH = 5
+BAD_CONTENT_TYPES = ('binary/octet-stream', '*/*', 'bin/plain')  # replaced by application/octet-stream
 
 _logger = logging.getLogger(__name__)
 
@@ -549,9 +550,6 @@ class MailThread(models.AbstractModel):
         for record in records:
             changes, _tracking_value_ids = tracking.get(record.id, (None, None))
             record._message_track_post_template(changes)
-        # this method is called after the main flush() and just before commit();
-        # we have to flush() again in case we triggered some recomputations
-        self.env.flush_all()
 
     def _track_set_author(self, author):
         """ Set the author of the tracking message. """
@@ -564,7 +562,6 @@ class MailThread(models.AbstractModel):
     def _track_post_template_finalize(self):
         """Call the tracking template method with right values from precommit."""
         self._message_track_post_template(self.env.cr.precommit.data.pop(f'mail.tracking.create.{self._name}.{self.id}', []))
-        self.env.flush_all()
 
     def _track_set_log_message(self, message):
         """ Link tracking to a message logged as body, in addition to subtype
@@ -1414,10 +1411,18 @@ class MailThread(models.AbstractModel):
         if strip_attachments:
             msg_dict.pop('attachments', None)
 
-        existing_msg_ids = self.env['mail.message'].search([('message_id', '=', msg_dict['message_id'])], limit=1)
-        if existing_msg_ids:
+        msg_id = msg_dict.get('message_id')
+        is_duplicate = bool(self.env['mail.message'].search_count([('message_id', '=', msg_id)], limit=1))
+        if not is_duplicate and msg_id:
+            # Synchronize concurrent transactions for the same message_id to make the duplicate check reliable.
+            # Use pg_try_advisory_xact_lock: if another transaction is already processing the same message_id,
+            # treat it as a duplicate.
+            self.env.cr.execute(SQL('SELECT pg_try_advisory_xact_lock(hashtext(%s))', msg_id))
+            is_duplicate = not self.env.cr.fetchone()[0]
+
+        if is_duplicate:
             _logger.info('Ignored mail from %s to %s with Message-Id %s: found duplicated Message-Id during processing',
-                         msg_dict.get('email_from'), msg_dict.get('to'), msg_dict.get('message_id'))
+                         msg_dict.get('email_from'), msg_dict.get('to'), msg_id)
             return False
 
         if self._detect_loop_headers(msg_dict):
@@ -1579,8 +1584,8 @@ class MailThread(models.AbstractModel):
                     # the parent email that might be added at the end
                     # (e.g. for outlook / yahoo bounce email)
                     break
-                if part.get_content_type() == 'binary/octet-stream':
-                    _logger.warning("Message containing an unexpected Content-Type 'binary/octet-stream', assuming 'application/octet-stream'")
+                if (bad_content_type := part.get_content_type()) in BAD_CONTENT_TYPES:
+                    _logger.warning("Message containing an unexpected Content-Type %r, assuming 'application/octet-stream'", bad_content_type)
                     part.replace_header('Content-Type', 'application/octet-stream')
                 if part.get_content_type() == 'multipart/alternative':
                     alternative = True
@@ -4739,7 +4744,7 @@ class MailThread(models.AbstractModel):
             if is_request:
                 res["hasReadAccess"] = thread.sudo(False).has_access("read")
                 res["hasWriteAccess"] = thread.sudo(False).has_access("write")
-                res["canPostOnReadonly"] = self._mail_post_access == "read"
+                res["canPostOnReadonly"] = self._get_mail_message_access(self.ids, 'create') == "read"
             if (
                 request_list
                 and "activities" in request_list
@@ -4800,6 +4805,8 @@ class MailThread(models.AbstractModel):
     @api.model
     def _get_thread_with_access(self, thread_id, mode="read", **kwargs):
         thread = self.browse(thread_id)
-        if thread.exists() and thread.sudo(False).has_access(mode):
+        if thread.exists() and thread.sudo(False).with_context(
+            allowed_company_ids=[]
+        ).has_access(mode):
             return thread
         return self.browse()

@@ -3,6 +3,7 @@ import * as ProductScreen from "@point_of_sale/../tests/tours/utils/product_scre
 import * as ReceiptScreen from "@point_of_sale/../tests/tours/utils/receipt_screen_util";
 import * as PaymentScreen from "@point_of_sale/../tests/tours/utils/payment_screen_util";
 import * as PosLoyalty from "@pos_loyalty/../tests/tours/utils/pos_loyalty_util";
+import * as PartnerList from "@point_of_sale/../tests/tours/utils/partner_list_util";
 import * as SelectionPopup from "@point_of_sale/../tests/tours/utils/selection_popup_util";
 import * as Dialog from "@point_of_sale/../tests/tours/utils/dialog_util";
 import * as Chrome from "@point_of_sale/../tests/tours/utils/chrome_util";
@@ -574,12 +575,30 @@ registry.category("web_tour.tours").add("RefundRulesProduct", {
             Chrome.startPoS(),
             Dialog.confirm("Open Register"),
             ProductScreen.clickDisplayedProduct("product_a"),
+            ProductScreen.clickDisplayedProduct("Gift Card"),
+            ProductScreen.clickDisplayedProduct("Top-up eWallet"),
+            ProductScreen.clickPartnerButton(),
+            PartnerList.clickPartner("AAAAAAA"),
             PosLoyalty.finalizeOrder("Cash", "1000"),
             ProductScreen.isShown(),
             ...ProductScreen.clickRefund(),
             TicketScreen.filterIs("Paid"),
             TicketScreen.selectOrder("-0001"),
             ProductScreen.clickNumpad("1"),
+            ProductScreen.clickLine("Gift Card"),
+            ProductScreen.clickNumpad("1"),
+            {
+                content: "Notification: not allowed to refund this product",
+                trigger:
+                    ".o_notification .o_notification_content:contains('Refunding a top up or reward product for an eWallet or gift card program is not allowed.')",
+            },
+            ProductScreen.clickLine("Top-up eWallet"),
+            ProductScreen.clickNumpad("1"),
+            {
+                content: "Notification: not allowed to refund this product",
+                trigger:
+                    ".o_notification .o_notification_content:contains('Refunding a top up or reward product for an eWallet or gift card program is not allowed.')",
+            },
             TicketScreen.confirmRefund(),
             ProductScreen.isShown(),
         ].flat(),
@@ -622,7 +641,9 @@ registry.category("web_tour.tours").add("test_confirm_coupon_programs_one_by_one
                     // Create 5 orders that will be synced one by one
                     for (let i = 0; i < 5; i++) {
                         const order = posmodel.createNewOrder();
-                        const product = posmodel.models["product.product"].getFirst();
+                        const product = posmodel.models["product.product"].find(
+                            (el) => el.attribute_line_ids.length == 0
+                        );
                         const pm = posmodel.models["pos.payment.method"].getFirst();
                         const program = posmodel.models["loyalty.program"].find(
                             (p) => p.program_type === "gift_card"
@@ -651,5 +672,66 @@ registry.category("web_tour.tours").add("test_confirm_coupon_programs_one_by_one
             PaymentScreen.clickPaymentMethod("Bank"),
             PaymentScreen.clickValidate(),
             ReceiptScreen.isShown(),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("test_loyalty_is_not_processed_for_draft_order", {
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            ProductScreen.clickPartnerButton(),
+            ProductScreen.clickCustomer("AAAA"),
+            ProductScreen.addOrderline("Whiteboard Pen", "1", "100"),
+            PosLoyalty.pointsAwardedAre("100"),
+            PosLoyalty.pointsTotalIs("150"),
+            ProductScreen.saveOrder(),
+            ProductScreen.selectFloatingOrder(0),
+            PosLoyalty.pointsAwardedAre("100"),
+            PosLoyalty.pointsTotalIs("150"),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("test_race_conditions_update_program", {
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            ProductScreen.clickDisplayedProduct("Test Product"),
+            {
+                trigger: "body",
+                run: async () => {
+                    // Check the number of lines in the order
+                    const line_count = document.querySelectorAll(".orderline").length;
+                    if (line_count !== 11) {
+                        throw new Error(`Expected 11 orderlines, found ${line_count}`);
+                    }
+                },
+            },
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("test_loyalty_in_trusted_pos_make_order", {
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            ProductScreen.clickPartnerButton(),
+            ProductScreen.clickCustomer("AAAA"),
+            ProductScreen.addOrderline("Whiteboard Pen", "1", "100"),
+            PosLoyalty.pointsAwardedAre("100"),
+            ProductScreen.saveOrder(),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("test_loyalty_in_trusted_pos", {
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            Chrome.clickMenuOption("Orders"),
+            TicketScreen.selectOrder("-0001"),
+            TicketScreen.loadSelectedOrder(),
+            PosLoyalty.pointsAwardedAre("100"),
         ].flat(),
 });

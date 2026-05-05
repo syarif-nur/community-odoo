@@ -23,21 +23,22 @@
 # Halil, 2025
 # Wil Odoo, 2025
 # Weblate <noreply-mt-weblate@weblate.org>, 2025.
+# "Deniz Guvener Unal (degu)" <degu@odoo.com>, 2026.
 msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 18.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-05 18:40+0000\n"
-"PO-Revision-Date: 2025-11-25 09:49+0000\n"
-"Last-Translator: Weblate <noreply-mt-weblate@weblate.org>\n"
-"Language-Team: Turkish <https://translate.odoo.com/projects/odoo-18/sms/tr/>"
-"\n"
+"POT-Creation-Date: 2026-04-10 18:38+0000\n"
+"PO-Revision-Date: 2026-04-11 09:08+0000\n"
+"Last-Translator: \"Deniz Guvener Unal (degu)\" <degu@odoo.com>\n"
+"Language-Team: Turkish <https://translate.odoo.com/projects/odoo-18/sms/tr/"
+">\n"
 "Language: tr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.16.2\n"
 
 #. module: sms
 #: model:ir.model.fields,field_description:sms.field_sms_composer__recipient_invalid_count
@@ -70,11 +71,6 @@ msgstr "%s (kopya)"
 #: code:addons/sms/wizard/sms_composer.py:0
 msgid "%s invalid recipients"
 msgstr "%s geçersiz alıcı"
-
-#. module: sms
-#: model_terms:ir.ui.view,arch_db:sms.sms_account_phone_view_form
-msgid "+1 555-555-555"
-msgstr "+1 555-555-555"
 
 #. module: sms
 #. odoo-javascript
@@ -173,6 +169,26 @@ msgid ""
 "                                in the messaging history.\n"
 "                            </span>"
 msgstr ""
+"<span invisible=\"sms_method != 'sms'\">\n"
+"                                    Mesaj, şablonun alıcılarına SMS olarak "
+"gönderilecek\n"
+"                                    ve mesajlaşma geçmişinde "
+"görünmeyecektir.\n"
+"                               </span>\n"
+"                                <span invisible=\"sms_method != 'note'\">\n"
+"                                    SMS gönderilmeyecek, sadece\n"
+"                                    mesajlaşma geçmişinde dahili not olarak "
+"görünecektir.\n"
+"                               </span>\n"
+"                                <span invisible=\"sms_method != "
+"'comment'\">\n"
+"                                    SMS, aşağıdaki alıcılara bir SMS olarak "
+"gönderilecektir\n"
+"                                    şablonu ile birlikte mesajlaşma "
+"geçmişinde\n"
+"                                    dahili bir not olarak da "
+"yayınlanacaktır.\n"
+"                               </span>"
 
 #. module: sms
 #: model_terms:ir.ui.view,arch_db:sms.sms_composer_view_form
@@ -1286,7 +1302,8 @@ msgstr "SMS içeriği"
 #. odoo-python
 #: code:addons/sms/models/ir_actions_server.py:0
 msgid "SMS template model of %(action_name)s does not match action model."
-msgstr "%(action_name)s adresinin SMS şablon modeli eylem modeliyle eşleşmiyor."
+msgstr ""
+"%(action_name)s adresinin SMS şablon modeli eylem modeliyle eşleşmiyor."
 
 #. module: sms
 #: model:ir.model.fields,field_description:sms.field_sms_sms__sms_tracker_id
@@ -1621,8 +1638,8 @@ msgstr ""
 "bir kayda takipçi ekle veya kaldır (Sohbet)\n"
 "- 'Kayıt Oluştur': yeni değerlerle yeni bir kayıt oluştur\n"
 "- 'Kod Çalıştır': çalıştırılacak bir Python kod bloğu\n"
-"- 'Webhook Bildirimi Gönder': harici bir sisteme POST isteği gönder (Webhook)"
-"\n"
+"- 'Webhook Bildirimi Gönder': harici bir sisteme POST isteği gönder "
+"(Webhook)\n"
 "- 'Mevcut Eylemleri Çalıştır': birden fazla sunucu eylemini tetikleyen bir "
 "eylem tanımla\n"
 
@@ -1851,3 +1868,6 @@ msgstr ""
 #: model_terms:ir.ui.view,arch_db:sms.sms_template_preview_form
 msgid "record:"
 msgstr "kayıt:"
+
+#~ msgid "+1 555-555-555"
+#~ msgstr "+1 555-555-555"
