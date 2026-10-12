@@ -2017,6 +2017,9 @@ export class Wysiwyg extends Component {
         if (!options.snippets) {
             $toolbar.find('#justify, #media-insert').remove();
         }
+        if (!user.isInternalUser) {
+            $toolbar.find('#chatgpt').remove();
+        }
         $toolbar.find('#image-fullscreen').click(() => {
             if (!this.lastMediaClicked?.src) {
                 return;
@@ -2647,7 +2650,9 @@ export class Wysiwyg extends Component {
                     }
                 },
             },
-            {
+        ];
+        if (user.isInternalUser) {
+            commands.push({
                 category: _t('AI Tools'),
                 name: _t('ChatGPT'),
                 description: _t('Generate or transform content with AI.'),
@@ -2655,8 +2660,8 @@ export class Wysiwyg extends Component {
                 priority: 1,
                 isDisabled: () => !this.odooEditor.isSelectionInBlockRoot(),
                 callback: async () => this.openChatGPTDialog(),
-            },
-        ];
+            });
+        }
         if (!editorOptions.inlineStyle) {
             commands.push(
                 {
@@ -2851,8 +2856,25 @@ export class Wysiwyg extends Component {
         const $delay_translation = $('.o_delay_translation');
         $delay_translation.removeClass('o_delay_translation');
 
-        $('.o_editable')
-            .removeClass('o_editable o_is_inline_editable o_editable_date_field_linked o_editable_date_field_format_changed');
+        const editorClassesToStrip = [
+            'o_editable',
+            'o_is_inline_editable',
+            'o_editable_date_field_linked',
+            'o_editable_date_field_format_changed',
+        ];
+
+        const strippedEditorClasses = [];
+        for (const nodeEl of $('.o_editable').toArray()) {
+            const removedClasses = editorClassesToStrip.filter(className => nodeEl.classList.contains(className));
+            nodeEl.classList.remove(...removedClasses);
+            strippedEditorClasses.push([nodeEl, removedClasses]);
+        }
+
+        const restoreEditorClasses = () => {
+            strippedEditorClasses.forEach(([nodeEl, removedClasses]) => {
+                nodeEl.classList.add(...removedClasses);
+            });
+        };
 
         const saveElementFuncName = this.options.enableTranslation
             ? '_saveTranslationElement'
@@ -2920,9 +2942,16 @@ export class Wysiwyg extends Component {
                 });
             });
         });
-        return Promise.all(proms).then(function () {
-            window.onbeforeunload = null;
-        });
+        return Promise.allSettled(proms)
+            .then( function (results) {
+                const rejectedResult = results.find((result) => result.status === "rejected");
+                if (rejectedResult) {
+                    restoreEditorClasses();
+                    throw rejectedResult.reason || new Error("One or more saves have been rejected");
+                } else {
+                    window.onbeforeunload = null;
+                }
+            })
     }
     // TODO unused => remove or reuse as it should be
     _attachTooltips() {

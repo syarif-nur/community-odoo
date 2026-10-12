@@ -1040,8 +1040,10 @@ class Base(models.AbstractModel):
         # process names in order
         while todo:
             # apply field-specific onchange methods
+            visited_onchanges = set()
             for field_name in todo:
-                record._apply_onchange_methods(field_name, result)
+                record._apply_onchange_methods(field_name, result, visited_onchanges)
+                visited_onchanges.update(self._onchange_methods.get(field_name, ()))
                 done.add(field_name)
 
             if not env.context.get('recursive_onchanges', True):
@@ -1155,9 +1157,7 @@ class RecordSnapshot(dict):
             if 'context' in self.fields_spec[field_name]:
                 lines = lines.with_context(**self.fields_spec[field_name]['context'])
             sub_fields_spec = self.fields_spec[field_name].get('fields') or {}
-            limit = self.fields_spec[field_name].get('limit')
-            limited_lines = lines[:limit] if limit else lines
-            self[field_name] = {line.id: RecordSnapshot(line, sub_fields_spec) for line in limited_lines}
+            self[field_name] = {line.id: RecordSnapshot(line, sub_fields_spec) for line in lines}
         else:
             self[field_name] = self.record[field_name]
 

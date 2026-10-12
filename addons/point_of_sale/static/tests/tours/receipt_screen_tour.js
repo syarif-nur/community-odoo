@@ -42,7 +42,7 @@ registry.category("web_tour.tours").add("ReceiptScreenTour", {
             PaymentScreen.enterPaymentLineAmount("Cash", "70", true, { remaining: "2.0" }),
             PaymentScreen.clickNumpad("0"),
             PaymentScreen.fillPaymentLineAmountMobile("Cash", "700"),
-            PaymentScreen.changeIs("628.0"),
+            PaymentScreen.changeIs("-628.0"),
             PaymentScreen.clickValidate(),
             ReceiptScreen.receiptIsThere(),
             ReceiptScreen.totalAmountContains("72.0"),
@@ -317,5 +317,38 @@ registry.category("web_tour.tours").add("test_amount_total_is_rounded", {
             PaymentScreen.clickPaymentMethod("Bank"),
             PaymentScreen.clickValidate(),
             ReceiptScreen.receiptIsThere(),
+        ].flat(),
+});
+
+registry.category("web_tour.tours").add("test_stale_draft_read_keeps_order_paid", {
+    steps: () =>
+        [
+            Chrome.startPoS(),
+            Dialog.confirm("Open Register"),
+            ProductScreen.clickDisplayedProduct("Desk Pad"),
+            ProductScreen.clickPayButton(),
+            PaymentScreen.clickPaymentMethod("Bank"),
+            PaymentScreen.clickValidate(),
+            ReceiptScreen.receiptIsThere(),
+            {
+                content: "A draft read started before the payment commit is loaded afterwards",
+                trigger: ".receipt-screen",
+                run: async () => {
+                    const order = posmodel.get_order();
+                    const searchRead = posmodel.data.searchRead;
+                    posmodel.data.searchRead = async () =>
+                        posmodel.models.loadData({
+                            "pos.order": [{ id: order.id, uuid: order.uuid, state: "draft" }],
+                        })["pos.order"];
+                    try {
+                        await posmodel.loadServerOrders([]);
+                    } finally {
+                        posmodel.data.searchRead = searchRead;
+                    }
+                    if (!order.finalized) {
+                        throw new Error("The paid order was reopened by a stale draft read");
+                    }
+                },
+            },
         ].flat(),
 });
